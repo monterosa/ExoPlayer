@@ -146,7 +146,7 @@ public abstract class SegmentDownloader<M, K> implements Downloader {
    */
   @Override
   public final synchronized void download(@Nullable ProgressListener listener)
-      throws IOException, InterruptedException {
+          throws IOException, InterruptedException {
     priorityTaskManager.add(C.PRIORITY_DOWNLOAD);
     try {
       getManifestIfNeeded(false);
@@ -156,8 +156,23 @@ public abstract class SegmentDownloader<M, K> implements Downloader {
       byte[] buffer = new byte[BUFFER_SIZE_BYTES];
       CachingCounters cachingCounters = new CachingCounters();
       for (int i = 0; i < segments.size(); i++) {
+        // XXX: Temp
+        if (cancelled) {
+
+          //Thread.currentThread().interrupt();
+          throw new InterruptedException();
+        }
+
         CacheUtil.cache(segments.get(i).dataSpec, cache, dataSource, buffer,
-            priorityTaskManager, C.PRIORITY_DOWNLOAD, cachingCounters, true);
+                        priorityTaskManager, C.PRIORITY_DOWNLOAD, cachingCounters, true);
+
+        // XXX: Temp
+        if (cancelled) {
+          // Thread.currentThread().interrupt();
+          // break;
+          throw new InterruptedException();
+        }
+
         downloadedBytes += cachingCounters.newlyCachedBytes;
         downloadedSegments++;
         notifyListener(listener);
@@ -260,7 +275,7 @@ public abstract class SegmentDownloader<M, K> implements Downloader {
    * @return A list of {@link Segment}s for given keys.
    */
   protected abstract List<Segment> getSegments(DataSource dataSource, M manifest, K[] keys,
-      boolean allowIncompleteIndex) throws InterruptedException, IOException;
+                                               boolean allowIncompleteIndex) throws InterruptedException, IOException;
 
   /**
    * Returns a list of all segments.
@@ -268,7 +283,7 @@ public abstract class SegmentDownloader<M, K> implements Downloader {
    * @see #getSegments(DataSource, M, Object[], boolean)}.
    */
   protected abstract List<Segment> getAllSegments(DataSource dataSource, M manifest,
-      boolean allowPartialIndex) throws InterruptedException, IOException;
+                                                  boolean allowPartialIndex) throws InterruptedException, IOException;
 
   private void resetCounters() {
     totalSegments = C.LENGTH_UNSET;
@@ -293,11 +308,11 @@ public abstract class SegmentDownloader<M, K> implements Downloader {
    * @return A list of not fully downloaded segments.
    */
   private synchronized List<Segment> initStatus(boolean offline)
-      throws IOException, InterruptedException {
+          throws IOException, InterruptedException {
     DataSource dataSource = getDataSource(offline);
     List<Segment> segments = keys != null && keys.length > 0
-        ? getSegments(dataSource, manifest, keys, offline)
-        : getAllSegments(dataSource, manifest, offline);
+                             ? getSegments(dataSource, manifest, keys, offline)
+                             : getAllSegments(dataSource, manifest, offline);
     CachingCounters cachingCounters = new CachingCounters();
     totalSegments = segments.size();
     downloadedSegments = 0;
@@ -324,6 +339,12 @@ public abstract class SegmentDownloader<M, K> implements Downloader {
 
   private DataSource getDataSource(boolean offline) {
     return offline ? offlineDataSource : dataSource;
+  }
+
+  // XXX: temp
+  private volatile boolean cancelled;
+  public void cancel() {
+    cancelled = true;
   }
 
 }
